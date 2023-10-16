@@ -1,0 +1,156 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation template for creating an ec2 instance",
+  "Parameters": {
+    "InstanceName": {
+      "Description": "Instance name for EC2",
+      "Type": "String"
+    },
+    "EBSVolumeSize": {
+      "Description": "Size of Root EBS Volume",
+      "Type": "String",
+      "Default": "40"
+    },
+    "KeyName": {
+      "Description": "Key Pair name",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Default": "morpheus-1-1ZAJ3G",
+      "ConstraintDescription": "Existing EC2 KeyPair."
+    },
+    "VPC": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Default": "vpc-015e2338b88b58b05"
+    },
+    "Subnet": {
+      "Type": "AWS::EC2::Subnet::Id",
+      "Default": "subnet-0f6301f557340f13f",
+      "AllowedValues": [
+        "subnet-0f6301f557340f13f",
+        "subnet-0aa319f0b59e17e67",
+        "subnet-057ea7d3765d1c8a6",
+        "subnet-0c39c638c16a876e5"
+      ]
+    },
+    "InstanceType": {
+      "Description": "Select one of the possible instance types",
+      "Type": "String",
+      "Default": "t2.micro",
+      "AllowedValues": [
+        "t2.nano",
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "t2.xlarge",
+        "t2.2xlarge",
+        "t3.nano",
+        "t3.micro",
+        "t3.small",
+        "t3.medium",
+        "t3.large",
+        "t3.xlarge",
+        "t3.2xlarge",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "m5.large",
+        "m5.xlarge",
+        "m5.2xlarge",
+        "m5.4xlarge",
+        "c5.large",
+        "c5.xlarge",
+        "c5.2xlarge",
+        "c5.4xlarge",
+        "c5.9xlarge",
+        "g3.8xlarge",
+        "r5.large",
+        "r5.xlarge",
+        "r5.2xlarge",
+        "r5.4xlarge",
+        "r3.12xlarge",
+        "i3.xlarge",
+        "i3.2xlarge",
+        "i3.4xlarge",
+        "i3.8xlarge",
+        "d2.xlarge",
+        "d2.2xlarge",
+        "d2.4xlarge",
+        "d2.8xlarge"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type."
+    },
+    "SecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup::Id",
+      "Default": "sg-005d65e8550afc8fb"
+    }
+  },
+  "Resources": {
+    "EC2Instance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": "ami-0c59090f40812e4db",
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "IamInstanceProfile": "AmazonSSMRoleForInstancesQuickSetup",
+        "KeyName": {
+          "Ref": "KeyName"
+        },
+        "SecurityGroupIds": [
+          {
+            "Ref": "SecurityGroup"
+          }
+        ],
+        "SubnetId": {
+          "Ref": "Subnet"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "InstanceName"
+            }
+          },
+          {
+            "Key": "Patch Group",
+            "Value": "ProductionLinux"
+          },
+          {
+            "Key": "Project Code",
+            "Value": 123456
+          },
+          {
+            "Key": "Cost Center",
+            "Value": 987654
+          }
+        ],
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/sda1",
+            "Ebs": {
+              "VolumeType": "gp2",
+              "VolumeSize": {
+                "Ref": "EBSVolumeSize"
+              },
+              "DeleteOnTermination": "true",
+              "Encrypted": "false"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "PublicName": {
+      "Value": {
+        "Fn::GetAtt": [
+          "EC2Instance",
+          "PublicDnsName"
+        ]
+      },
+      "Description": "Public name (connect via SSH)"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+variable "prefix" {}
+variable "tags" {}
+variable "rg_name" {}
+variable "rg_location" {}
+variable "kubernetes_version" {}
+variable "aks_vmss_sku" {}
+variable "network_policy" {}
+variable "aad_tenant_id" {}
+variable "aad_admin_group_id" {}
+variable "azurerm_subnet_app_id" {}
+variable "azurerm_log_analytics_id" {}

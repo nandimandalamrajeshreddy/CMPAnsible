@@ -1,0 +1,203 @@
+pipeline
+{
+    options 
+	{
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+    
+  agent {label 'USTR-MVM-1481'}
+  
+    stages 
+	{ 
+		stage('Clone')
+		{   
+			// Cloning the latest code from Bitbucket 
+            steps
+			{
+                    
+				node ('USTR-MVM-1481')
+				{
+					ws('/usr/local/cmp')
+					{                            
+						retry(2) {
+						checkout([$class: 'GitSCM', branches: [[name: '*/dev']], doGenerateSubmoduleConfigurations: false, extensions: [], gitTool: 'jgit', submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'c8d7c81a-e81c-4fe8-b492-af774f07d0ca', url: 'https://ustr-bitbucket-1.na.uis.unisys.com:8443/scm/cmp/cmp_main.git']]])
+						}
+						
+					}    
+				}
+            }
+        }
+		
+		stage('Build Artifact')
+        {    
+            steps
+			{
+                    
+				node ('USTR-MVM-1481')
+				{
+					ws('/usr/local/cmp')
+					{        
+						sh '''
+
+						echo "**********************************$(date "+%m%d%Y %T") : Building the CMP Package**********************************"   
+						mkdir Nexus
+						cd /usr/local/cmp/morpheus/auto_script/api/python   
+						echo "**********************************$(date "+%m%d%Y %T") : Creating whl file from the latest python scripts**********************************"                           
+						python3 -m pip install --user --upgrade setuptools wheel
+						python3 setup.py bdist_wheel
+						cp /usr/local/cmp/morpheus/auto_script/api/python/dist/cmp_morpheus-3.0.0-py3-none-any.whl /usr/local/cmp/Nexus/
+						cd  /usr/local/cmp/morpheus/
+
+						echo "**********************************$(date "+%m%d%Y %T") : Copying the terraform scripts, monitoring scrtips to the cmp package**********************************"  
+						cp -r /usr/local/cmp/morpheus/terraform_scripts/tf_landingzone/ /usr/local/cmp/Nexus/
+						cp -r /usr/local/cmp/morpheus/terraform_scripts/Terraform-AWS-Patching-Monitoring/ /usr/local/cmp/Nexus/
+						cp -r /usr/local/cmp/morpheus/ansible_scripts/ /usr/local/cmp/Nexus/
+						cd /usr/local/cmp/Nexus
+
+						'''
+					}    
+				}
+            }
+        }
+     
+    
+       
+		
+		stage('Run-terraform-Script')
+		{	
+			steps
+			{
+				
+				node ('USTR-MVM-1481')
+				{
+					ws('/usr/local/cmp/Nexus')
+					{
+						withCredentials([string(credentialsId: 'subscription_id', variable: 'subscription_id'), string(credentialsId: 'client_id', variable: 'client_id'), string(credentialsId: 'client_secret', variable: 'client_secret'), string(credentialsId: 'tenant_id', variable: 'tenant_id'),string(credentialsId: 'awsSecretKey', variable: 'awsSecretKey'),string(credentialsId: 'awsaccessKey', variable: 'awsaccessKey'),string(credentialsId: 'LICENSE_TEXT', variable: 'LICENSE_TEXT'),string(credentialsId: 'azclientId', variable: 'azclientId'),string(credentialsId: 'azclientSecret', variable: 'azclientSecret'),string(credentialsId: 'admin_username', variable: 'admin_username'),string(credentialsId: 'admin_password', variable: 'admin_password') ])
+						{
+
+							sh '''
+									
+								sed -i '/subscription_id/d' ./tf_landingzone/terraform.tfvars
+								sed -i '/client_id/d' ./tf_landingzone/terraform.tfvars
+								sed -i '/client_secret/d' ./tf_landingzone/terraform.tfvars
+								sed -i '/tenant_id/d' ./tf_landingzone/terraform.tfvars
+								sed -i "s/<<--admin_username-->>/$admin_username/g" ./tf_landingzone/terraform.tfvars
+								sed -i "s/<<--admin_password-->>/$admin_password/g" ./tf_landingzone/terraform.tfvars
+								sed -i "s/TERRAFORM_PIPELINE_TEST1/TERRAFORM_PIPELINE_TEST1_newtest3/g" ./tf_landingzone/terraform.tfvars
+								sed -i "s/cmp251tod/cmp251todnewtest3/g" ./tf_landingzone/terraform.tfvars
+								cd /usr/local/cmp/Nexus/tf_landingzone
+								set +x
+
+								testvar=$subscription_id
+								echo $testvar
+								echo "**********************************$(date "+%m%d%Y %T") : Provisioning terraform resources**********************************" 
+
+								terraform init
+								terraform plan -var "subscription_id=${subscription_id}" -var "client_id=${client_id}" -var "client_secret=${client_secret}" -var "tenant_id=${tenant_id}" 
+								terraform apply --auto-approve -var "subscription_id=${subscription_id}" -var "client_id=${client_id}" -var "client_secret=${client_secret}" -var "tenant_id=${tenant_id}" 
+								
+								appliance_url=$(terraform output public_ip_address)
+								echo "**********************************$(date "+%m%d%Y %T") : Morpheus will be accessible at the following URL: $appliance_url	**********************************"  
+								cd /usr/local/cmp/Nexus
+
+								echo "**********************************$(date "+%m%d%Y %T") : Terraform resources successfully created**********************************" 
+
+								sleep 1200
+								#apt install python3-pip
+								#apt-get install -y python3-venv
+								#apt-get install -y python3-requests
+								#pip3 install requests
+								#pip3 install tqdm
+
+								echo "**********************************$(date "+%m%d%Y %T") : Execution of Enrichment scripts**********************************"
+								python3 -m venv StagingEnv
+								. ./StagingEnv/bin/activate
+								ls
+								pip3 install requests
+								pip3 install tqdm
+								pip3 install stdiomask			
+
+								pip3 install cmp_morpheus-3.0.0-py3-none-any.whl
+				
+								echo "**********************************$(date "+%m%d%Y %T") : Modifying the values in configuration.ini file**********************************"
+								sed -i "s|appliance_url|https://$appliance_url|g"  /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/configuration.ini
+								
+								echo "**********************************$(date "+%m%d%Y %T") : Modifying the values in zones_data.json file**********************************"
+								sed -i "s/<<--awsaccessKey-->>/$awsaccessKey/g" /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/manifests/zones_data.json
+								sed -i "s/<<--awsSecretKey-->>/$awsSecretKey/g" /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/manifests/zones_data.json
+								sed -i "s/<<--subscription_id-->>/$subscription_id/g" /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/manifests/zones_data.json
+								sed -i "s/<<--tenant_id-->>/$tenant_id/g" /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/manifests/zones_data.json
+								sed -i "s/<<--client_id-->>/$azclientId/g" /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/manifests/zones_data.json
+								sed -i "s/<<--client_secret-->>/$azclientSecret/g" /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/manifests/zones_data.json
+
+								sed -i "s/<<--admin_username-->>/$admin_username/g" /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/manifests/zones_data.json
+								sed -i "s/<<--admin_password-->>/$admin_password/g" /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/manifests/zones_data.json
+								
+								echo "**********************************$(date "+%m%d%Y %T") : Modifying the values in license_data.json file**********************************"
+								sed -i "s/<<--LICENSE_TEXT-->>/$LICENSE_TEXT/g" /usr/local/cmp/Nexus/StagingEnv/lib/python3.6/site-packages/cmp/manifests/license_data.json
+								
+								echo "**********************************$(date "+%m%d%Y %T") : Importing the CMP configurations**********************************"
+								python3 -m cmp.cmp_main newSetup -c "cmpadmin/Unisys*12345"  Unisys*123 CDc-k9MX.4CPcL Unisys*1234									
+
+							'''
+						}						
+					}	
+				}				
+			}
+		}  
+
+		stage('Approval for destroying terraform resources and cleaning workspace')
+        {
+			input
+			{
+   				message "Do you want to proceed to destroy terraform resources production deployment?"
+      		}
+            steps
+			{
+                node ('USTR-MVM-1481'){
+					ws('/usr/local/cmp/Nexus/tf_landingzone')
+                        {
+					
+							withCredentials([string(credentialsId: 'subscription_id', variable: 'subscription_id'), string(credentialsId: 'client_id', variable: 'client_id'), string(credentialsId: 'client_secret', variable: 'client_secret'), string(credentialsId: 'tenant_id', variable: 'tenant_id'),string(credentialsId: 'awsSecretKey', variable: 'awsSecretKey'),string(credentialsId: 'awsaccessKey', variable: 'awsaccessKey'),string(credentialsId: 'LICENSE_TEXT', variable: 'LICENSE_TEXT'),string(credentialsId: 'azclientId', variable: 'azclientId'),string(credentialsId: 'azclientSecret', variable: 'azclientSecret'),string(credentialsId: 'admin_username', variable: 'admin_username'),string(credentialsId: 'admin_password', variable: 'admin_password')  ]) 
+							{
+							// some block
+							sh '''
+						        echo "**********************************$(date "+%m%d%Y %T") : Yes is selected, hence destroying the terraform resources**********************************"
+
+								set +x
+								echo $subscription_id
+								echo $client_id
+								echo $client_secret
+								echo $tenant_id
+								testvar=$subscription_id
+								echo $testvar
+								terraform destroy --auto-approve -var "subscription_id=${subscription_id}" -var "client_id=${client_id}" -var "client_secret=${client_secret}" -var "tenant_id=${tenant_id}" 
+								echo "**********************************$(date "+%m%d%Y %T") : Terraform Destroy executed successfully**********************************"
+								sleep 480
+								echo "**********************************$(date "+%m%d%Y %T") :Cleaning workspace - Start **********************************"
+								cd /usr/local/
+								rm -rf cmp
+								echo "**********************************$(date "+%m%d%Y %T") :Cleaning workspace - End**********************************"
+
+
+							'''
+							}
+						
+						}
+                            
+                    }
+            }
+        }
+	}																
+}
+
+
+
+ 
+
+ 
+
+ 
+
+
+ 

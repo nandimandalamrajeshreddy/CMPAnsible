@@ -1,0 +1,28 @@
+{
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "name": "req",
+      "type": "httpTrigger",
+      "direction": "in",
+      "methods": [
+        "delete"
+      ],
+      "route": "records/{id}"
+    },
+    {
+      "name": "$return",
+      "type": "http",
+      "direction": "out"
+    },
+    {
+      "type": "cosmosDB",
+      "name": "employeeDocument",
+      "databaseName": "employeedb",
+      "collectionName": "records",
+      "connectionStringSetting": "CONNECTIONSTRING",
+      "direction": "in"
+    }
+  ],
+  "disabled": false
+}

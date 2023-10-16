@@ -1,0 +1,20 @@
+
+[sssd]
+domains = cloudforte.com
+config_file_version = 2
+services = nss, pam
+
+[domain/cloudforte.com]
+ad_server = cmpdevad1.cloudforte.com
+ad_domain = cloudforte.com
+krb5_realm = CLOUDFORTE.COM
+realmd_tags = joined-with-adcli 
+cache_credentials = True
+id_provider = ad
+krb5_store_password_if_offline = True
+default_shell = /bin/bash
+ldap_id_mapping = True
+use_fully_qualified_names = False
+fallback_homedir = /home/%d/%u
+simple_allow_users = $
+access_provider = ad

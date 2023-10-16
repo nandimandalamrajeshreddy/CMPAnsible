@@ -1,0 +1,5 @@
+---
+- hosts: all
+  roles:
+    - { role: install_morpheus_single_node }
+

@@ -1,0 +1,1 @@
+Sample application for deploying an app in aks cluster.

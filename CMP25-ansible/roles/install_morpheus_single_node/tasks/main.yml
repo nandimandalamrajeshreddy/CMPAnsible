@@ -1,0 +1,87 @@
+# - name: Download morpheus .deb file
+#   get_url:
+#    # url: https://downloads.morpheusdata.com/files/morpheus-appliance_4.2.2-4_amd64.deb
+#      url https://downloads.morpheusdata.com/files/morpheus-appliance_4.2.5-1_amd64.deb
+#     dest: /tmp/
+
+# - name: Install morpheus 
+#   shell: cd /tmp/ && dpkg -i morpheus-appliance_4.2.3-1_amd64.deb
+#   become: true
+#   register: out
+
+- name: check morpheus is installed or not
+  apt:
+    name: morpheus-appliance
+    state: present
+    update_cache: true
+  become: true
+  register: morout
+  ignore_errors: True
+
+- debug: var=morout
+
+- name: Install a morpheus using a .deb package because no morpheus is installed
+  apt:
+#    deb: https://downloads.morpheusdata.com/files/morpheus-appliance_5.2.1-1_amd64.deb
+#    deb: https://downloads.morpheusdata.com/files/morpheus-appliance_5.2.0-1_amd64.deb
+    deb: https://downloads.morpheusdata.com/files/morpheus-appliance_4.2.5-1_amd64.deb
+#    deb: https://downloads.morpheusdata.com/files/morpheus-appliance_4.2.3-1_amd64.deb
+  become: true
+  register: out
+#  when: morout.failed != false
+
+- name: Find the public ip
+  uri: 
+    url: http://ifconfig.me/ip
+    return_content: yes
+  register: ip_response
+
+- name: print public IP
+  debug:
+    var: ip_response.content  
+
+- name: Create a morpheus.rb file
+  template:
+    src:  "{{role_path}}/templates/morpheus_rb.j2"
+    dest: /etc/morpheus/morpheus.rb
+  become: true
+
+- name: Run reconfigure command 
+  shell: sudo morpheus-ctl reconfigure
+  become: true
+  register: out
+
+- name: stop morpheus-ui service
+  shell: morpheus-ctl stop morpheus-ui
+  become: true
+  register: out
+
+- name: start morpheus-ui service
+  command: morpheus-ctl start morpheus-ui
+  become: true
+  retries: 5
+  delay: 10
+  register: result
+  until: result.rc == 0
+ 
+- name: install ansible
+  command: apt-get update -y
+  command: apt-get install software-properties-common -y
+  command: apt-add-repository ppa:ansible/ansible -y
+  command: apt-get install -y python-requests
+  command: apt-get install ansible -y
+  become: true
+ 
+- name: Give permissions to the Folder
+  command: chown morpheus-local:morpheus-local /opt/morpheus/.local/.ansible
+  become: true
+
+- name: Create a new folder
+  command: mkdir -p /opt/morpheus/.ansible
+  become: true
+
+- name: Give permissions to the new Folder
+  command: chown morpheus-local:morpheus-local /opt/morpheus/.ansible
+  become: true
+
+

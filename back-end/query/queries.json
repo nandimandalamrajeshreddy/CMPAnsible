@@ -1,0 +1,6 @@
+{
+    "getAllData" : "SELECT * FROM Persons",
+    "addNewUser" :"INSERT INTO Persons (PersonID,LastName,FirstName, Address, City) VALUES (@id,@lastname,@firstname,@address,@city)",
+    "deleteUser" : "DELETE FROM Persons WHERE PersonID = @id",
+    "updateUserDetails" : "UPDATE Persons SET FirstName = @firstname,LastName = @lastname,Address = @address,City = @city WHERE PersonID = @id"
+}

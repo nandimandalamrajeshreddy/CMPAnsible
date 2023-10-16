@@ -1,0 +1,104 @@
+pipeline {
+    
+	agent {label 'USTR-MVM-1481'}
+    stages {
+	stage('Clean previous workspace')
+        {    
+            steps{
+                    
+                    node ('USTR-MVM-1481')
+                    {
+                        ws('/usr/local')
+                        {                            
+                            sh '''
+							rm -rf cmp2
+							rm -rf cmp2@tmp
+							'''
+                        }    
+                    }
+                }
+        }
+	
+		stage('Clone')
+        {    
+            steps{
+                    
+                    node ('USTR-MVM-1481')
+                    {
+                        ws('/usr/local/cmp2')
+                        {                            
+                            retry(2) {
+                            checkout([$class: 'GitSCM', branches: [[name: '*/dev']], doGenerateSubmoduleConfigurations: false, extensions: [], gitTool: 'jgit', submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'c8d7c81a-e81c-4fe8-b492-af774f07d0ca', url: 'https://ustr-bitbucket-1.na.uis.unisys.com:8443/scm/cmp/cmp_main.git']]])
+                            }
+							
+                        }    
+                    }
+                }
+        }
+		stage('Build Artifacts')
+        {    
+            steps{
+                    
+                    node ('USTR-MVM-1481')
+                    {
+                    ws('/usr/local/cmp2')
+                        {        
+                            sh '''
+                            mkdir Nexus
+                            cd /usr/local/cmp2/morpheus/auto_script/api/python                                   
+                            python3 -m pip install --user --upgrade setuptools wheel
+                            python3 setup.py bdist_wheel
+                            cp /usr/local/cmp2/morpheus/auto_script/api/python/dist/cmp_morpheus-3.0.0-py3-none-any.whl /usr/local/cmp2/Nexus/
+                            cd  /usr/local/cmp2/morpheus/
+							cp -r /usr/local/cmp2/morpheus/terraform_scripts/tf_landingzone/ /usr/local/cmp2/Nexus/
+                            cp -r /usr/local/cmp2/morpheus/terraform_scripts/Terraform-AWS-Patching-Monitoring/ /usr/local/cmp2/Nexus/
+							cp -r /usr/local/cmp2/morpheus/terraform_scripts/azure_native_patching_monitoring_tf/ /usr/local/cmp2/Nexus/
+                            cp -r /usr/local/cmp2/morpheus/ansible_scripts/ /usr/local/cmp2/Nexus/
+                            cd /usr/local/cmp2/Nexus
+                            rm -rf Release.zip
+                            zip -r Release.zip *
+                            '''
+            
+
+    
+                        }    
+                    }
+                }
+        }
+        stage('run checkov') {
+            steps {
+               
+					
+					script {
+                    sh " checkov --directory /usr/local/cmp2/Nexus/tf_landingzone -o junitxml > result1.xml || true"
+					sh " checkov --directory /usr/local/cmp2/Nexus/azure_native_patching_monitoring_tf -o junitxml > result2.xml || true"
+					sh " checkov --directory /usr/local/cmp2/Nexus/Terraform-AWS-Patching-Monitoring -o junitxml > result3.xml || true"
+                    #6 failures				
+					junit "result1.xml"
+					#4 failures
+					junit "result2.xml"
+					junit "result3.xml"
+                    }
+
+                
+
+
+            }
+        }
+		
+		stage('checkov run is completed') {
+            steps {
+               
+					sh'''
+					
+					echo "Checkov run is completed"
+					'''
+
+                
+
+
+            }
+        }
+    }
+ 
+}

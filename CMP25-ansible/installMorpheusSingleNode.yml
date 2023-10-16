@@ -1,0 +1,7 @@
+---
+- hosts: all
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  roles:
+    - { role: install_morpheus_single_node }
+

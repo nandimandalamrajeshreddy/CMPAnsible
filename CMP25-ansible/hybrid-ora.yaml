@@ -1,0 +1,25 @@
+---
+- name: Ansible Copy Directory Example Local to Remote
+  hosts: all
+  tasks:
+    - name: Install Nginx
+      apt:
+        name: "nginx"
+        state: present
+            #update_cache: yes
+
+    - name: Start the Service
+      service:
+        name: "nginx"
+        state: started
+        enabled: yes
+
+    - name: Copying the Directory's contents (sub directories/files)
+      become: true 
+      copy:
+        src: /var/opt/morpheus/morpheus-local/repo/git/4a201487bb5b7d659272bf2ff13de760/Hybrid-Cloud/phpcode/
+        dest: /var/www/html/
+        
+    - name: deleting the index.html
+      become: true
+      shell: "rm -f /var/www/html/index.nginx-debian.html"

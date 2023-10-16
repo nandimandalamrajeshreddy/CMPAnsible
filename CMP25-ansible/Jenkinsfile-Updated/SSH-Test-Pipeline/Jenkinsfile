@@ -1,0 +1,84 @@
+pipeline
+{
+  options
+  {
+      buildDiscarder(logRotator(numToKeepStr: '5'))
+  }
+    
+  agent {label 'USTR-MVM-1481'}
+  
+    stages 
+    { 
+      stage('Approval')
+      {
+		    input
+        {
+          message "Do you want to proceed for production deployment?"
+        }
+        steps
+        {
+          node ('USTR-MVM-1481')
+          {
+            ws('/usr/local/cmpapprove')
+            {
+              sh '''
+
+              echo "You clicked on Yes."
+
+              '''
+            }            
+          }
+        }
+      }  
+         
+      stage('Post Approval Stage')
+      {		   
+        steps
+        {
+          node ('USTR-MVM-1481')
+          {
+            ws('/usr/local/cmpapprove')
+              {
+                sh '''
+
+                echo "Post approval stage"
+
+                '''
+              }            
+          }
+        }
+      }       
+    }
+	
+		post 
+    {
+      success 
+      {
+
+        script 
+        {
+
+          def mailRecipients = 'Radhika.Bhardwaj2@unisys.com'
+          def jobName = currentBuild.fullDisplayName
+          #emailext body: '''${SCRIPT, template="groovy-html.template"}''',
+          
+          mimeType: 'text/html',
+          subject: "SUCCESS: ${currentBuild.fullDisplayName}",
+          to: "${mailRecipients}",
+          replyTo: "${mailRecipients}",
+          recipientProviders: [[$class: 'CulpritsRecipientProvider']]
+        }
+      }
+    }
+}
+
+
+
+ 
+
+ 
+
+ 
+
+
+ 

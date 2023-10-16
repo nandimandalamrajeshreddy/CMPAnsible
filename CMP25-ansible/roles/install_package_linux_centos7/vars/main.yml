@@ -1,0 +1,3 @@
+---
+# vars file for install_package_linux_rhel
+JAVA_HOME: /usr/lib/jvm/jre

@@ -1,0 +1,88 @@
+
+pipeline
+{
+    options 
+	{
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+    
+  agent {label 'USTR-MVM-1481'}
+  
+    stages 
+	{ 
+		stage('Clone')
+		{   
+			
+			// Cloning the latest code from Bitbucket 
+            steps
+			{
+                    
+				node ('USTR-MVM-1481')
+				{
+					ws('/usr/local/cmppseudo')
+					{                            
+						retry(2) {
+						checkout([$class: 'GitSCM', branches: [[name: '*/dev']], doGenerateSubmoduleConfigurations: false, extensions: [], gitTool: 'jgit', submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'c8d7c81a-e81c-4fe8-b492-af774f07d0ca', url: 'https://ustr-bitbucket-1.na.uis.unisys.com:8443/scm/cmp/cmp_main.git']]])
+						}
+						withCredentials([usernamePassword(credentialsId: 'c8d7c81a-e81c-4fe8-b492-af774f07d0ca', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+							   sh '''
+                                   cd /usr/local/cmppseudo
+                                   '''
+                               sh '''git config http.sslverify false'''
+                               sh '''git config user.name "CMP"'''
+                               sh '''git config user.email "CMP@Unisys.com"'''
+                               sh ''' echo git CMP_BUILD_3.0.$BUILD_NUMBER tag applying ------- '''
+							   sh '''
+                                    cd /usr/local/cmppseudo
+                                     git tag -a CMP_BUILD_3.0.$BUILD_NUMBER -m "CMP_BUILD_3.0.$BUILD_NUMBER"
+                                   '''
+                               sh '''
+                                      git push https://$USERNAME:$PASSWORD@ustr-bitbucket-1.na.uis.unisys.com:8443/scm/cmp/cmp_main.git CMP_BUILD_3.0.$BUILD_NUMBER '''
+						}
+					}    
+				}
+            }
+        }
+		
+		stage('Build Artifact')
+        {    
+            steps
+			{
+                    
+				node ('USTR-MVM-1481')
+				{
+					ws('/usr/local/cmppseudo')
+					{        
+						sh '''
+
+						echo -e "**********************************$(date "+%m%d%Y %T") : Building the CMP Package**********************************"   
+						mkdir Nexus
+						cd /usr/local/cmppseudo/morpheus/auto_script/api/python   
+						echo -e "**********************************$(date "+%m%d%Y %T") : Creating whl file from the latest python scripts**********************************"                           
+						python3 -m pip install --user --upgrade setuptools wheel
+						python3 setup.py bdist_wheel
+						cp /usr/local/cmppseudo/morpheus/auto_script/api/python/dist/cmp_morpheus-3.0.0-py3-none-any.whl /usr/local/cmppseudo/Nexus/
+						cd  /usr/local/cmppseudo/morpheus/
+
+						echo -e "**********************************$(date "+%m%d%Y %T") : Copying the terraform scripts, monitoring scrtips to the cmp package**********************************"  
+						cp -r /usr/local/cmppseudo/morpheus/terraform_scripts/tf_landingzone/ /usr/local/cmppseudo/Nexus/
+						cp -r /usr/local/cmppseudo/morpheus/terraform_scripts/Terraform-AWS-Patching-Monitoring/ /usr/local/cmppseudo/Nexus/
+						cp -r /usr/local/cmppseudo/morpheus/ansible_scripts/ /usr/local/cmppseudo/Nexus/
+						cd /usr/local/cmppseudo/Nexus
+
+						'''
+					}    
+				}
+            }
+        }
+	}
+	post {
+            success {
+  
+        build job: 'cmp-ci-pipeline-package-upload'
+    }
+  }
+
+}
+
+ 

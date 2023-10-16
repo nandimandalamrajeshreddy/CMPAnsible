@@ -1,0 +1,6 @@
+---
+# handlers file for install_package_linux_rhel
+- name: restart tomcat
+  service:
+    name: tomcat
+    state: restarted

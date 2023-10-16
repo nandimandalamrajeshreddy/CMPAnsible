@@ -1,0 +1,6 @@
+---
+- hosts: all
+  vars:
+    ansible_python_interpreter: /usr/libexec/platform-python
+  roles:
+    - { role: install_package_linux_centos7 }

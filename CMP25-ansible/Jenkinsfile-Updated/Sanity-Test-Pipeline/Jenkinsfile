@@ -1,0 +1,47 @@
+pipeline
+{
+  agent {label 'INBLR-UVM-8000'}
+  stages 
+  {  
+    stage('Clone')
+		{   
+			// Cloning the latest code from Bitbucket 
+      steps
+			{
+  			node ('INBLR-UVM-8000')
+				{
+					ws('C:\\jenkins\\workspace\\CMP')
+					{                            
+						retry(2) {
+						checkout([$class: 'GitSCM', branches: [[name: '*/dev']], doGenerateSubmoduleConfigurations: false, extensions: [], gitTool: 'jgit', submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'c8d7c81a-e81c-4fe8-b492-af774f07d0ca', url: 'https://ustr-bitbucket-1.na.uis.unisys.com:8443/scm/cmp/cmp_main.git']]])
+						}
+					}    
+				}
+      }
+    } 
+  
+    stage('TestSanityRun')
+    {
+      steps
+      {
+        node ('INBLR-UVM-8000')
+        {
+          //def ws = 'C:\\jenkins\\workspace\\CMP'
+          ws('C:\\jenkins\\workspace\\CMP')
+          {
+              bat '''
+                echo "********************************** Start Pytest Execution **********************************"
+                DIR
+                XCOPY /s C:\\jenkins\\sanitytest C:\\jenkins\\workspace\\CMP\\morpheus\\qa_automation
+                CD C:\\jenkins\\workspace\\CMP\\morpheus\\qa_automation\\Driver
+                pip install -r requirements.txt
+                CD C:\\jenkins\\workspace\\CMP\\morpheus\\qa_automation\\tests\\test_sanity
+                python -m pytest test_ansible_integration.py
+                echo "********************************** End of Pytest Execution **********************************"
+              '''
+          }
+        }
+      }
+    } 
+  }
+}

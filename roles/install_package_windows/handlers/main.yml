@@ -1,0 +1,6 @@
+---
+# handlers file for install_package
+- name: restart sshd
+  win_service:
+    name: SSHD
+    state: restarted

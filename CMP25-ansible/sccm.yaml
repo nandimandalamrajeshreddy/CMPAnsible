@@ -1,0 +1,23 @@
+---
+- hosts: all
+  tasks:
+    - name: check if a file exists
+      win_stat:
+        path: C:\\Windows\\CCM\\CcmExec.exe
+        register: register_name
+    - name: Task name
+      debug:
+        msg: "The file or directory exists"
+      when: register_name.stat.exists
+    - name: Report missing file
+      debug:
+        msg: "The file or directory doesn't exists"
+      when: not register_name.stat.exists
+    - name: copy SCCM
+      win_get_url:
+        url: http://ustr-erl-5764.na.uis.unisys.com/Chef_LoadPoints/sccm/SCCM_5.00.8913.1000_u2.17.exe
+        dest: C:\TEMP
+      when: not register_name.stat.exists
+    - name: install sccm
+      win_command: C:\TEMP\SCCM_5.00.8913.1000_u2.17.exe /q
+      when: not register_name.stat.exists 

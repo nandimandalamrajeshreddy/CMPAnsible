@@ -1,0 +1,9 @@
+1) inorder to execute particular script
+	pytest *module.py* --alluredir="..\..\..\Report"
+
+2) inorder to execute all scripts present under package (Batch Execution)
+	pytest --alluredir="..\..\..\Report"
+
+
+3) after test scripts execution completed, from command prompt below command as to be given
+	allure serve "..\..\..\Report"
